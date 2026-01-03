@@ -415,7 +415,7 @@ public class DocumentChunker {
      * Получение контекстных документов для списка чанков запроса
      */
     public List<SimilarDocument> getContextDocuments(List<SemanticChunker.Chunk> chunksQuery, String clientId, int maxCountDocFromBD) {
-        return getContextDocuments(chunksQuery, clientId, maxCountDocFromBD, semanticChunker.getSimilarityThreshold());
+        return getContextDocuments(chunksQuery, clientId, maxCountDocFromBD, configLoader.getSimilarityThreshold());
     }
 
     /**
@@ -429,11 +429,18 @@ public class DocumentChunker {
         dbParams.setProperty("password", password);
 
         try (Connection conn = DriverManager.getConnection(dbUrl, dbParams)) {
+            System.out.println("Поиск контекстных документов для " + chunksQuery.size() + " чанков запроса");
+            System.out.println("Порог схожести: " + similarityThreshold);
 
             for (SemanticChunker.Chunk chunk : chunksQuery) {
+                System.out.println("Обработка чанка: " +
+                        (chunk.getText().length() > 50 ? chunk.getText().substring(0, 50) + "..." : chunk.getText()));
+
                 // Получаем документы для текущего чанка
                 List<SimilarDocument> similarDocs = findSimilarDocuments(conn, chunk.getEmbedding(),
                         clientId, maxCountDocFromBD, similarityThreshold);
+
+                System.out.println("Найдено документов для этого чанка: " + similarDocs.size());
                 contextDocuments.addAll(similarDocs);
             }
 
@@ -441,15 +448,20 @@ public class DocumentChunker {
             System.err.println("Ошибка при получении контекстных документов: " + e.getMessage());
         }
 
-        return contextDocuments;
+        // Удаляем дубликаты по ID документа
+        return removeDuplicates(contextDocuments);
     }
 
     /**
      * Получение контекстных документов для текста с автоматическим чанкингом
      */
     public List<SimilarDocument> getContextDocumentsForText(String text, String clientId, int maxChunkSize, int maxCountDocFromBD) throws Exception {
+        System.out.println("\n=== Поиск контекстных документов для запроса ===");
+        System.out.println("Запрос: " + text);
+
         // Выполняем семантическое чанкинг запроса
         List<SemanticChunker.Chunk> chunks = semanticChunker.semanticChunking(text, maxChunkSize);
+        System.out.println("Запрос разбит на " + chunks.size() + " семантических чанков");
 
         // Получаем контекстные документы
         return getContextDocuments(chunks, clientId, maxCountDocFromBD);
@@ -462,17 +474,17 @@ public class DocumentChunker {
                                                        String clientId, int topK, double threshold) throws SQLException {
         List<SimilarDocument> similarDocuments = new ArrayList<>();
 
+        // Используем более эффективный запрос с косинусным сходством
         String sql = """
                     SELECT 
                         d.id, 
                         d.content, 
                         d.metadata,
                         e.embedding,
-                        1 - (e.embedding <=> ?::vector) as similarity
+                        (1 - (e.embedding <=> ?::vector)) as similarity
                     FROM embeddings e
                     JOIN documents d ON e.document_id = d.id
                     WHERE d.client_id = ?
-                    AND 1 - (e.embedding <=> ?::vector) >= ?
                     ORDER BY e.embedding <=> ?::vector
                     LIMIT ?
                 """;
@@ -483,9 +495,7 @@ public class DocumentChunker {
             pstmt.setString(1, embeddingStr);
             pstmt.setString(2, clientId);
             pstmt.setString(3, embeddingStr);
-            pstmt.setDouble(4, threshold);
-            pstmt.setString(5, embeddingStr);
-            pstmt.setInt(6, topK);
+            pstmt.setInt(4, topK * 3); // Берем больше, чтобы потом отфильтровать
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -494,17 +504,47 @@ public class DocumentChunker {
                     String metadata = rs.getString("metadata");
                     double similarity = rs.getDouble("similarity");
 
+                    // Фильтруем по порогу
+                    if (similarity < threshold) {
+                        continue;
+                    }
+
                     // Получаем embedding как массив float
                     String embeddingArrayStr = rs.getString("embedding");
                     float[] embeddingArray = parsePgVectorString(embeddingArrayStr);
 
                     SimilarDocument similarDoc = new SimilarDocument(id, content, metadata, similarity, embeddingArray);
                     similarDocuments.add(similarDoc);
+
+                    // Если набрали достаточно документов, выходим
+                    if (similarDocuments.size() >= topK) {
+                        break;
+                    }
                 }
             }
         }
 
         return similarDocuments;
+    }
+
+    /**
+     * Удаляет дубликаты документов по ID
+     */
+    private List<SimilarDocument> removeDuplicates(List<SimilarDocument> documents) {
+        List<SimilarDocument> uniqueDocs = new ArrayList<>();
+        java.util.Set<Long> seenIds = new java.util.HashSet<>();
+
+        for (SimilarDocument doc : documents) {
+            if (!seenIds.contains(doc.getId())) {
+                seenIds.add(doc.getId());
+                uniqueDocs.add(doc);
+            }
+        }
+
+        // Сортируем по схожести (от высокой к низкой)
+        uniqueDocs.sort((d1, d2) -> Double.compare(d2.getSimilarity(), d1.getSimilarity()));
+
+        return uniqueDocs;
     }
 
     /**
@@ -571,5 +611,44 @@ public class DocumentChunker {
      */
     public SemanticChunker getSemanticChunker() {
         return semanticChunker;
+    }
+
+    /**
+     * Метод для отладки: получает все документы для clientId
+     */
+    public List<SimilarDocument> getAllDocuments(String clientId, int limit) {
+        List<SimilarDocument> documents = new ArrayList<>();
+        Properties dbParams = new Properties();
+        dbParams.setProperty("user", username);
+        dbParams.setProperty("password", password);
+
+        String sql = """
+                    SELECT d.id, d.content, d.metadata
+                    FROM documents d
+                    WHERE d.client_id = ?
+                    LIMIT ?
+                """;
+
+        try (Connection conn = DriverManager.getConnection(dbUrl, dbParams);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, clientId);
+            pstmt.setInt(2, limit);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Long id = rs.getLong("id");
+                    String content = rs.getString("content");
+                    String metadata = rs.getString("metadata");
+
+                    SimilarDocument doc = new SimilarDocument(id, content, metadata, 1.0, new float[0]);
+                    documents.add(doc);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Ошибка при получении документов: " + e.getMessage());
+        }
+
+        return documents;
     }
 }

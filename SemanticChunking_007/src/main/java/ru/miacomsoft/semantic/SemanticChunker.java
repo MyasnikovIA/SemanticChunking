@@ -55,7 +55,7 @@ public class SemanticChunker {
      * Конструктор с ConfigLoader
      */
     public SemanticChunker(ConfigLoader configLoader) {
-        this(configLoader, 10, false, 3);
+        this(configLoader, 10, true, 3); // Включили sliding window по умолчанию
     }
 
     /**
@@ -65,8 +65,7 @@ public class SemanticChunker {
         this.httpClient = HttpClient.newHttpClient();
         this.ollamaBaseUrl = configLoader.getOllamaUrl();
         this.embeddingModel = configLoader.getProperties().getProperty("rag.embedding.model", "all-minilm:22m");
-        this.similarityThreshold = Double.parseDouble(
-                configLoader.getProperties().getProperty("rag.similarity.threshold", "0.7"));
+        this.similarityThreshold = configLoader.getSimilarityThreshold(); // Используем метод ConfigLoader
         this.batchSize = batchSize;
         this.useSlidingWindow = useSlidingWindow;
         this.windowSize = windowSize;
@@ -82,7 +81,7 @@ public class SemanticChunker {
         this.embeddingModel = embeddingModel;
         this.similarityThreshold = similarityThreshold;
         this.batchSize = 10;
-        this.useSlidingWindow = false;
+        this.useSlidingWindow = true; // Включили по умолчанию
         this.windowSize = 3;
         this.embeddingCache = new Cache<>(1000);
     }
@@ -114,6 +113,8 @@ public class SemanticChunker {
             return new ArrayList<>();
         }
 
+        System.out.println("Разбито на " + sentences.size() + " предложений");
+
         // 2. Получаем эмбеддинги для всех предложений (пакетная обработка с кэшированием)
         List<float[]> embeddings = getEmbeddingsBatchWithCache(sentences);
 
@@ -137,9 +138,8 @@ public class SemanticChunker {
         text = text.replaceAll("\\s+", " ").trim();
 
         // Паттерн для разделения предложений, учитывающий сокращения
-        // Более сложный паттерн для обработки различных случаев
-        String regex = "(?<![A-Z][a-z]\\.)(?<![A-Z][a-z][a-z]\\.)(?<![A-Z]\\.)(?<![Мм]г\\.)(?<![Вв]т\\.)(?<![Дд]р\\.)(?<![Пп]р\\.)"
-                + "(?<![Тт]\\.[А-Я])(?<![0-9]\\.)(?<=[.!?])\\s+(?=[А-ЯA-Z\"«(])";
+        // Более простой и надежный паттерн
+        String regex = "(?<=[.!?])\\s+(?=[А-ЯA-Z\"«(])";
 
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(text);
@@ -207,6 +207,7 @@ public class SemanticChunker {
 
         // Получаем эмбеддинги для некэшированных предложений пачками
         if (!uncachedSentences.isEmpty()) {
+            System.out.println("Получение эмбеддингов для " + uncachedSentences.size() + " предложений");
             List<float[]> uncachedEmbeddings = getEmbeddingsBatch(uncachedSentences);
 
             // Заполняем результаты и кэшируем
@@ -241,13 +242,13 @@ public class SemanticChunker {
 
                 // Небольшая задержка между запросами в одной пачке
                 if (batch.indexOf(sentence) < batch.size() - 1) {
-                    Thread.sleep(20);
+                    Thread.sleep(50);
                 }
             }
 
             // Небольшая задержка между пачками
             if (end < sentences.size()) {
-                Thread.sleep(50);
+                Thread.sleep(100);
             }
         }
 
@@ -261,6 +262,9 @@ public class SemanticChunker {
         JSONObject requestBody = new JSONObject();
         requestBody.put("model", embeddingModel);
         requestBody.put("prompt", text);
+
+        System.out.println("Получение эмбеддинга для: " +
+                (text.length() > 50 ? text.substring(0, 50) + "..." : text));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(ollamaBaseUrl + "/api/embeddings"))
@@ -353,6 +357,14 @@ public class SemanticChunker {
             if (avgSimilarity >= similarityThreshold) {
                 // Расширяем чанк
                 chunkEnd = findOptimalChunkEnd(sentences, embeddings, i, maxChunkSize);
+            } else {
+                // Если сходство низкое, пробуем объединить с соседним предложением
+                if (i + 1 < sentences.size()) {
+                    double nextSimilarity = cosineSimilarity(embeddings.get(i), embeddings.get(i + 1));
+                    if (nextSimilarity >= similarityThreshold) {
+                        chunkEnd = i + 2;
+                    }
+                }
             }
 
             // Создаем чанк
@@ -366,6 +378,7 @@ public class SemanticChunker {
             i = chunkEnd;
         }
 
+        System.out.println("Создано " + chunks.size() + " семантических чанков");
         return chunks;
     }
 
@@ -442,9 +455,9 @@ public class SemanticChunker {
                 cluster.add(i);
                 assigned[i] = true;
 
-                // Ищем похожие предложения
+                // Ищем похожие предложения с более мягким порогом
                 for (int j = i + 1; j < similarityMatrix.length; j++) {
-                    if (!assigned[j] && similarityMatrix[i][j] >= threshold) {
+                    if (!assigned[j] && similarityMatrix[i][j] >= threshold * 0.8) { // Более мягкий порог
                         cluster.add(j);
                         assigned[j] = true;
                     }
@@ -487,7 +500,8 @@ public class SemanticChunker {
         double lastSimilarity = 1.0;
 
         for (int i = start; i < sentences.size(); i++) {
-            currentLength += sentences.get(i).length();
+            int sentenceLength = sentences.get(i).length() + (i == start ? 0 : 1);
+            currentLength += sentenceLength;
 
             // Проверяем максимальный размер
             if (currentLength > maxChunkSize && i > start) {
@@ -497,7 +511,7 @@ public class SemanticChunker {
             // Проверяем сходство с предыдущим предложением
             if (i > start) {
                 double similarity = cosineSimilarity(embeddings.get(i-1), embeddings.get(i));
-                if (similarity < similarityThreshold) {
+                if (similarity < similarityThreshold * 0.9) { // Более мягкий порог для продолжения
                     return i;
                 }
                 lastSimilarity = similarity;
@@ -572,6 +586,19 @@ public class SemanticChunker {
 
         for (int j = 0; j < dimensions; j++) {
             average[j] /= embeddings.size();
+        }
+
+        // Нормализуем вектор
+        double norm = 0;
+        for (float value : average) {
+            norm += value * value;
+        }
+        norm = Math.sqrt(norm);
+
+        if (norm > 0) {
+            for (int j = 0; j < dimensions; j++) {
+                average[j] /= norm;
+            }
         }
 
         return average;

@@ -26,7 +26,7 @@ public class ConfigLoader {
     private void setDefaultProperties() {
         properties.setProperty("rag.generation.model", "deepseek-coder-v2:16b");
         properties.setProperty("rag.chat.model", "deepseek-coder-v2:16b");
-        properties.setProperty("rag.similarity.threshold", "0.9");
+        properties.setProperty("rag.similarity.threshold", "0.7"); // Уменьшено с 0.9
         properties.setProperty("rag.ollama.server.host", "localhost");
         properties.setProperty("rag.ollama.server.port", "11434");
         properties.setProperty("rag.embedding.model", "all-minilm:22m");
@@ -59,7 +59,11 @@ public class ConfigLoader {
     public String getEmbeddingServiceUrl() {
         return String.format("http://%s:%s/embed",
                 properties.getProperty("rag.embedding.host"),
-                properties.getProperty("rag.embedding.server.port")); // Исправлено: server.port вместо port
+                properties.getProperty("rag.embedding.server.port"));
+    }
+
+    public double getSimilarityThreshold() {
+        return Double.parseDouble(properties.getProperty("rag.similarity.threshold", "0.7"));
     }
 
     public Properties loadPropertiesFromClasspath(String fileName) {
