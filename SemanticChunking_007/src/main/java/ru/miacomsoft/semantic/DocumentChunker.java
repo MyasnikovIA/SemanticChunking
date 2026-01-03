@@ -677,4 +677,184 @@ public class DocumentChunker {
         System.out.println("Username: " + username);
         System.out.println("==============================\n");
     }
+
+    // =================== НОВЫЕ МЕТОДЫ ДЛЯ ГЕНЕРАЦИИ КОНТЕКСТА ===================
+
+    /**
+     * Генерация контекста для Ollama Chat на основе семантического поиска
+     *
+     * @param userQuery запрос пользователя
+     * @param clientId идентификатор клиента
+     * @param maxChunkSize максимальный размер чанка для запроса
+     * @param maxContextDocuments максимальное количество контекстных документов
+     * @param minSimilarity минимальный порог схожести (если null, используется из конфига)
+     * @return форматированный контекст для Ollama Chat
+     * @throws Exception
+     */
+    public String generateChatContext(String userQuery, String clientId,
+                                      int maxChunkSize, int maxContextDocuments,
+                                      Double minSimilarity) throws Exception {
+        System.out.println("\n=== Генерация контекста для Ollama Chat ===");
+        System.out.println("Запрос: " + userQuery);
+
+        // Получаем контекстные документы
+        List<SimilarDocument> contextDocs;
+        if (minSimilarity != null) {
+            // Выполняем семантическое чанкинг запроса
+            List<SemanticChunker.Chunk> chunks = semanticChunker.semanticChunking(userQuery, maxChunkSize);
+            contextDocs = getContextDocuments(chunks, clientId, maxContextDocuments, minSimilarity);
+        } else {
+            contextDocs = getContextDocumentsForText(userQuery, clientId, maxChunkSize, maxContextDocuments);
+        }
+
+        // Форматируем контекст
+        return formatContextForChat(userQuery, contextDocs);
+    }
+
+    /**
+     * Генерация контекста для Ollama Generation (генерация текста) на основе семантического поиска
+     *
+     * @param prompt промпт для генерации
+     * @param clientId идентификатор клиента
+     * @param maxChunkSize максимальный размер чанка для промпта
+     * @param maxContextDocuments максимальное количество контекстных документов
+     * @param minSimilarity минимальный порог схожести (если null, используется из конфига)
+     * @return форматированный контекст для Ollama Generation
+     * @throws Exception
+     */
+    public String generateGenerationContext(String prompt, String clientId,
+                                            int maxChunkSize, int maxContextDocuments,
+                                            Double minSimilarity) throws Exception {
+        System.out.println("\n=== Генерация контекста для Ollama Generation ===");
+        System.out.println("Промпт: " + prompt);
+
+        // Получаем контекстные документы
+        List<SimilarDocument> contextDocs;
+        if (minSimilarity != null) {
+            // Выполняем семантическое чанкинг промпта
+            List<SemanticChunker.Chunk> chunks = semanticChunker.semanticChunking(prompt, maxChunkSize);
+            contextDocs = getContextDocuments(chunks, clientId, maxContextDocuments, minSimilarity);
+        } else {
+            contextDocs = getContextDocumentsForText(prompt, clientId, maxChunkSize, maxContextDocuments);
+        }
+
+        // Форматируем контекст
+        return formatContextForGeneration(prompt, contextDocs);
+    }
+
+    /**
+     * Форматирование контекста для Ollama Chat
+     */
+    private String formatContextForChat(String userQuery, List<SimilarDocument> contextDocs) {
+        StringBuilder contextBuilder = new StringBuilder();
+
+        contextBuilder.append("Ты - интеллектуальный ассистент, который использует предоставленный контекст для ответов.\n");
+        contextBuilder.append("Контекст основан на семантическом поиске по базе знаний.\n\n");
+
+        if (contextDocs.isEmpty()) {
+            contextBuilder.append("Контекст не найден. Ответь, используя свои общие знания.\n");
+            return contextBuilder.toString();
+        }
+
+        contextBuilder.append("=== КОНТЕКСТ ДЛЯ ОТВЕТА ===\n");
+        contextBuilder.append("Запрос пользователя: ").append(userQuery).append("\n\n");
+        contextBuilder.append("Найденные релевантные документы из базы знаний:\n\n");
+
+        for (int i = 0; i < contextDocs.size(); i++) {
+            SimilarDocument doc = contextDocs.get(i);
+            contextBuilder.append("Документ ").append(i + 1).append(" (схожесть: ")
+                    .append(String.format("%.2f", doc.getSimilarity())).append("):\n");
+            contextBuilder.append(doc.getContent()).append("\n\n");
+
+            // Добавляем метаданные если они есть
+            if (doc.getMetadata() != null && !doc.getMetadata().isEmpty() && !doc.getMetadata().equals("null")) {
+                try {
+                    JSONObject metadata = new JSONObject(doc.getMetadata());
+                    if (metadata.length() > 0) {
+                        contextBuilder.append("Метаданные: ").append(metadata.toString(2)).append("\n");
+                    }
+                } catch (Exception e) {
+                    // Игнорируем ошибки парсинга метаданных
+                }
+            }
+            contextBuilder.append("---\n\n");
+        }
+
+        contextBuilder.append("=== ИНСТРУКЦИЯ ===\n");
+        contextBuilder.append("Используй предоставленный контекст для формирования точного и информативного ответа.\n");
+        contextBuilder.append("Если в контексте нет нужной информации, так и скажи, но попробуй дать максимально полезный ответ.\n");
+        contextBuilder.append("Ссылайся на документы из контекста, если это уместно.\n");
+        contextBuilder.append("Отвечай на русском языке, если вопрос был на русском.\n");
+
+        return contextBuilder.toString();
+    }
+
+    /**
+     * Форматирование контекста для Ollama Generation
+     */
+    private String formatContextForGeneration(String prompt, List<SimilarDocument> contextDocs) {
+        StringBuilder contextBuilder = new StringBuilder();
+
+        contextBuilder.append("Сгенерируй текст на основе предоставленного контекста.\n");
+        contextBuilder.append("Контекст основан на семантическом поиске по базе знаний.\n\n");
+
+        if (contextDocs.isEmpty()) {
+            contextBuilder.append("Контекст не найден. Используй свои общие знания для генерации.\n");
+            contextBuilder.append("Промпт: ").append(prompt).append("\n");
+            return contextBuilder.toString();
+        }
+
+        contextBuilder.append("=== ИСХОДНЫЙ ПРОМПТ ===\n");
+        contextBuilder.append(prompt).append("\n\n");
+        contextBuilder.append("=== РЕЛЕВАНТНЫЙ КОНТЕКСТ ===\n\n");
+
+        for (int i = 0; i < contextDocs.size(); i++) {
+            SimilarDocument doc = contextDocs.get(i);
+            contextBuilder.append("[Источник ").append(i + 1).append(", схожесть: ")
+                    .append(String.format("%.2f", doc.getSimilarity())).append("]\n");
+            contextBuilder.append(doc.getContent()).append("\n\n");
+        }
+
+        contextBuilder.append("=== ИНСТРУКЦИЯ ДЛЯ ГЕНЕРАЦИИ ===\n");
+        contextBuilder.append("Используй предоставленный контекст для генерации текста.\n");
+        contextBuilder.append("Сохраняй стиль и терминологию из контекста.\n");
+        contextBuilder.append("Если контекст содержит противоречивую информацию, постарайся её синтезировать.\n");
+        contextBuilder.append("Сгенерируй текст, который непосредственно отвечает на промпт, используя информацию из контекста.\n");
+
+        return contextBuilder.toString();
+    }
+
+    /**
+     * Упрощенный метод для генерации контекста с параметрами по умолчанию
+     */
+    public String generateChatContext(String userQuery, String clientId) throws Exception {
+        return generateChatContext(userQuery, clientId, 500, 5, null);
+    }
+
+    /**
+     * Упрощенный метод для генерации контекста с параметрами по умолчанию
+     */
+    public String generateGenerationContext(String prompt, String clientId) throws Exception {
+        return generateGenerationContext(prompt, clientId, 500, 5, null);
+    }
+
+    /**
+     * Комбинированный метод для получения как контекста, так и исходных документов
+     *
+     * @return массив из двух элементов: [0] - форматированный контекст, [1] - список документов
+     */
+    public Object[] getContextAndDocuments(String query, String clientId,
+                                           int maxChunkSize, int maxContextDocuments,
+                                           boolean forChat) throws Exception {
+        List<SimilarDocument> contextDocs = getContextDocumentsForText(query, clientId, maxChunkSize, maxContextDocuments);
+
+        String formattedContext;
+        if (forChat) {
+            formattedContext = formatContextForChat(query, contextDocs);
+        } else {
+            formattedContext = formatContextForGeneration(query, contextDocs);
+        }
+
+        return new Object[] { formattedContext, contextDocs };
+    }
 }

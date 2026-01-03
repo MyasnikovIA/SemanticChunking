@@ -27,7 +27,7 @@ public class UsageExample {
             Многопоточность в Java реализована через класс Thread и интерфейс Runnable.
             Spring Framework является наиболее популярным фреймворком для создания enterprise-приложений на Java.
             """;
-        
+
         // Тема 2: Искусственный интеллект
         String aiDoc = """
             Искусственный интеллект (ИИ) - это область компьютерных наук, занимающаяся созданием интеллектуальных машин.
@@ -243,6 +243,96 @@ public class UsageExample {
                 System.out.println(vectorResults.get(0).getContent());
             }
         }
+
+        // 8. Демонстрация новых методов генерации контекста для Ollama
+        System.out.println("\n=== Демонстрация генерации контекста для Ollama ===");
+
+        // 8.1 Генерация контекста для Ollama Chat
+        System.out.println("\n--- 8.1 Контекст для Ollama Chat ---");
+        String chatQuery = "Объясни, как работает многопоточность в Java";
+        System.out.println("Запрос для чата: " + chatQuery);
+
+        // Простой вариант
+        String simpleChatContext = documentChunker.generateChatContext(chatQuery, "client1");
+        System.out.println("\nКонтекст (первые 800 символов):");
+        //System.out.println(simpleChatContext.substring(0, Math.min(800, simpleChatContext.length())) + "...");
+        System.out.println("\n--------------------------------------------------------------------------");
+        System.out.println(simpleChatContext);
+        System.out.println("\n--------------------------------------------------------------------------");
+
+        // Расширенный вариант с кастомными параметрами
+        System.out.println("\n--- 8.2 Расширенный контекст для чата ---");
+        String detailedChatContext = documentChunker.generateChatContext(
+                chatQuery,
+                "client1",
+                300,    // maxChunkSize
+                7,      // maxContextDocuments
+                0.6     // minSimilarity
+        );
+        System.out.println("Длина контекста: " + detailedChatContext.length() + " символов");
+        System.out.println("Первые 1000 символов:");
+        System.out.println(detailedChatContext.substring(0, Math.min(1000, detailedChatContext.length())) + "...");
+
+        // 8.3 Генерация контекста для Ollama Generation
+        System.out.println("\n--- 8.3 Контекст для Ollama Generation ---");
+        String generationPrompt = "Напиши подробное руководство по использованию Spring Framework";
+        System.out.println("Промпт для генерации: " + generationPrompt);
+
+        String generationContext = documentChunker.generateGenerationContext(
+                generationPrompt,
+                "client1",
+                400,    // maxChunkSize
+                8,      // maxContextDocuments
+                0.55    // minSimilarity (более низкий порог для большего охвата)
+        );
+        System.out.println("\nКонтекст для генерации (первые 900 символов):");
+        //System.out.println(generationContext.substring(0, Math.min(900, generationContext.length())) + "...");
+        System.out.println("\n--------------------------------------------------------------------------");
+        System.out.println(generationContext);
+        System.out.println("\n--------------------------------------------------------------------------");
+
+        // 8.4 Комбинированный метод получения контекста и документов
+        System.out.println("\n--- 8.4 Комбинированный метод получения контекста ---");
+        String combinedQuery = "Что такое REST API и микросервисная архитектура?";
+        System.out.println("Запрос: " + combinedQuery);
+
+        Object[] combinedResult = documentChunker.getContextAndDocuments(
+                combinedQuery,
+                "client1",
+                350,    // maxChunkSize
+                4,      // maxContextDocuments
+                true    // forChat
+        );
+
+        String formattedContext = (String) combinedResult[0];
+        List<DocumentChunker.SimilarDocument> retrievedDocs = (List<DocumentChunker.SimilarDocument>) combinedResult[1];
+
+        System.out.println("\nПолучено документов: " + retrievedDocs.size());
+        System.out.println("Длина форматированного контекста: " + formattedContext.length() + " символов");
+        System.out.println("\nПример форматирования (первые 700 символов):");
+        System.out.println("\n--------------------------------------------------------------------------");
+        //System.out.println(formattedContext.substring(0, Math.min(700, formattedContext.length())) + "...");
+        System.out.println(formattedContext);
+        System.out.println("\n--------------------------------------------------------------------------");
+
+        // 8.5 Пример использования контекста для различных типов запросов
+        System.out.println("\n--- 8.5 Различные типы запросов ---");
+
+        String[] testQueries = {
+                "Как работает автоматическое управление памятью в Java?",
+                "Что такое обработка естественного языка?",
+                "Объясни принцип работы векторных баз данных",
+                "Какие существуют угрозы безопасности в веб-приложениях?"
+        };
+
+        for (int i = 0; i < testQueries.length; i++) {
+            System.out.println("\nЗапрос " + (i+1) + ": " + testQueries[i]);
+            String context = documentChunker.generateChatContext(testQueries[i], "client1", 250, 3, null);
+            System.out.println("Длина контекста: " + context.length() + " символов");
+            System.out.println("Первые 300 символов контекста:");
+            System.out.println(context.substring(0, Math.min(300, context.length())) + "...");
+        }
+
         System.out.println("\n=== Тестирование завершено ===");
     }
 }
