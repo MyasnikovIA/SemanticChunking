@@ -244,94 +244,102 @@ public class UsageExample {
             }
         }
 
-        // 8. Демонстрация новых методов генерации контекста для Ollama
-        System.out.println("\n=== Демонстрация генерации контекста для Ollama ===");
+        // 8. Демонстрация новых методов генерации промпта для Ollama
+        System.out.println("\n=== Демонстрация генерации промпта для Ollama ===");
 
-        // 8.1 Генерация контекста для Ollama Chat
-        System.out.println("\n--- 8.1 Контекст для Ollama Chat ---");
+        // 8.1 Генерация промпта для Ollama Chat с шаблоном по умолчанию
+        System.out.println("\n--- 8.1 Промпт для Ollama Chat (шаблон по умолчанию) ---");
         String chatQuery = "Объясни, как работает многопоточность в Java";
-        System.out.println("Запрос для чата: " + chatQuery);
+        System.out.println("Запрос: " + chatQuery);
 
-        // Простой вариант
-        String simpleChatContext = documentChunker.generateChatContext(chatQuery, "client1");
-        System.out.println("\nКонтекст (первые 800 символов):");
-        //System.out.println(simpleChatContext.substring(0, Math.min(800, simpleChatContext.length())) + "...");
-        System.out.println("\n--------------------------------------------------------------------------");
-        System.out.println(simpleChatContext);
-        System.out.println("\n--------------------------------------------------------------------------");
+        String chatPrompt = documentChunker.generateChatPrompt(chatQuery, "client1");
+        System.out.println("\nСгенерированный промпт (первые 800 символов):");
+        System.out.println(chatPrompt.substring(0, Math.min(800, chatPrompt.length())) + "...");
 
-        // Расширенный вариант с кастомными параметрами
-        System.out.println("\n--- 8.2 Расширенный контекст для чата ---");
-        String detailedChatContext = documentChunker.generateChatContext(
+        // 8.2 Генерация промпта с кастомными параметрами
+        System.out.println("\n--- 8.2 Промпт с кастомными параметрами ---");
+        String detailedPrompt = documentChunker.generateChatPrompt(
                 chatQuery,
                 "client1",
                 300,    // maxChunkSize
                 7,      // maxContextDocuments
-                0.6     // minSimilarity
+                0.6,    // minSimilarity
+                null    // promptTemplate (используется по умолчанию)
         );
-        System.out.println("Длина контекста: " + detailedChatContext.length() + " символов");
+        System.out.println("Длина промпта: " + detailedPrompt.length() + " символов");
         System.out.println("Первые 1000 символов:");
-        System.out.println(detailedChatContext.substring(0, Math.min(1000, detailedChatContext.length())) + "...");
+        System.out.println(detailedPrompt.substring(0, Math.min(1000, detailedPrompt.length())) + "...");
 
-        // 8.3 Генерация контекста для Ollama Generation
-        System.out.println("\n--- 8.3 Контекст для Ollama Generation ---");
-        String generationPrompt = "Напиши подробное руководство по использованию Spring Framework";
-        System.out.println("Промпт для генерации: " + generationPrompt);
+        // 8.3 Генерация промпта для Ollama Generation
+        System.out.println("\n--- 8.3 Промпт для Ollama Generation ---");
+        String generationQuery = "Напиши подробное руководство по использованию Spring Framework";
+        System.out.println("Запрос для генерации: " + generationQuery);
 
-        String generationContext = documentChunker.generateGenerationContext(
-                generationPrompt,
+        String generationPrompt = documentChunker.generateGenerationPrompt(
+                generationQuery,
                 "client1",
                 400,    // maxChunkSize
                 8,      // maxContextDocuments
-                0.55    // minSimilarity (более низкий порог для большего охвата)
+                0.55,   // minSimilarity
+                null    // promptTemplate
         );
-        System.out.println("\nКонтекст для генерации (первые 900 символов):");
-        //System.out.println(generationContext.substring(0, Math.min(900, generationContext.length())) + "...");
-        System.out.println("\n--------------------------------------------------------------------------");
-        System.out.println(generationContext);
-        System.out.println("\n--------------------------------------------------------------------------");
+        System.out.println("\nСгенерированный промпт (первые 900 символов):");
+        System.out.println(generationPrompt.substring(0, Math.min(900, generationPrompt.length())) + "...");
 
-        // 8.4 Комбинированный метод получения контекста и документов
-        System.out.println("\n--- 8.4 Комбинированный метод получения контекста ---");
+        // 8.4 Комбинированный метод получения промпта и документов
+        System.out.println("\n--- 8.4 Комбинированный метод получения промпта ---");
         String combinedQuery = "Что такое REST API и микросервисная архитектура?";
         System.out.println("Запрос: " + combinedQuery);
 
-        Object[] combinedResult = documentChunker.getContextAndDocuments(
+        Object[] combinedResult = documentChunker.getPromptAndDocuments(
                 combinedQuery,
                 "client1",
                 350,    // maxChunkSize
                 4,      // maxContextDocuments
-                true    // forChat
+                null    // promptTemplate
         );
 
-        String formattedContext = (String) combinedResult[0];
+        String formattedPrompt = (String) combinedResult[0];
         List<DocumentChunker.SimilarDocument> retrievedDocs = (List<DocumentChunker.SimilarDocument>) combinedResult[1];
 
         System.out.println("\nПолучено документов: " + retrievedDocs.size());
-        System.out.println("Длина форматированного контекста: " + formattedContext.length() + " символов");
-        System.out.println("\nПример форматирования (первые 700 символов):");
-        System.out.println("\n--------------------------------------------------------------------------");
-        //System.out.println(formattedContext.substring(0, Math.min(700, formattedContext.length())) + "...");
-        System.out.println(formattedContext);
-        System.out.println("\n--------------------------------------------------------------------------");
+        System.out.println("Длина промпта: " + formattedPrompt.length() + " символов");
+        System.out.println("\nПромпт (первые 700 символов):");
+        System.out.println(formattedPrompt.substring(0, Math.min(700, formattedPrompt.length())) + "...");
 
-        // 8.5 Пример использования контекста для различных типов запросов
-        System.out.println("\n--- 8.5 Различные типы запросов ---");
+        // 8.5 Пример с кастомным шаблоном промпта
+        System.out.println("\n--- 8.5 Кастомный шаблон промпта ---");
 
-        String[] testQueries = {
-                "Как работает автоматическое управление памятью в Java?",
-                "Что такое обработка естественного языка?",
-                "Объясни принцип работы векторных баз данных",
-                "Какие существуют угрозы безопасности в веб-приложениях?"
-        };
+        String customTemplate = """
+            Ты - эксперт по программированию. Отвечай на вопросы строго на основе предоставленного контекста.
+            Если информации в контексте недостаточно, используй свои знания, но отметь это.
+            
+            Контекстная информация:
+            {context}
+            
+            Вопрос пользователя:
+            {query}
+            
+            Твой ответ должен быть четким и структурированным:
+            """;
 
-        for (int i = 0; i < testQueries.length; i++) {
-            System.out.println("\nЗапрос " + (i+1) + ": " + testQueries[i]);
-            String context = documentChunker.generateChatContext(testQueries[i], "client1", 250, 3, null);
-            System.out.println("Длина контекста: " + context.length() + " символов");
-            System.out.println("Первые 300 символов контекста:");
-            System.out.println(context.substring(0, Math.min(300, context.length())) + "...");
-        }
+        String customQuery = "Какие существуют угрозы безопасности в веб-приложениях?";
+        System.out.println("Запрос: " + customQuery);
+
+        String customGeneratedPrompt = documentChunker.generatePromptWithCustomTemplate(
+                customTemplate,
+                customQuery,
+                "client1",
+                250,
+                3
+        );
+
+        System.out.println("\nПромпт с кастомным шаблоном (первые 800 символов):");
+        System.out.println(customGeneratedPrompt.substring(0, Math.min(800, customGeneratedPrompt.length())) + "...");
+
+        // 8.6 Показать шаблон по умолчанию
+        System.out.println("\n--- 8.6 Шаблон промпта по умолчанию ---");
+        System.out.println(documentChunker.getDefaultPromptTemplate());
 
         System.out.println("\n=== Тестирование завершено ===");
     }

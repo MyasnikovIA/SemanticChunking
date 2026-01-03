@@ -24,23 +24,27 @@ public class Main {
         List<DocumentChunker.SimilarDocument> contextDocs = documentChunker.getContextDocumentsForText(query, "client1", 500, 10);
         System.out.println("Найдено контекстных документов: " + contextDocs.size());
 
-        // 6. Пример использования новых методов генерации контекста
-        System.out.println("\n=== Пример генерации контекста для Ollama ===");
+        // 6. Пример использования новых методов генерации промпта
+        System.out.println("\n=== Пример генерации промпта для Ollama ===");
 
-        // Генерация контекста для чата
+        // Генерация промпта для чата
         String chatQuery = "Как работает семантический чанкинг?";
-        String chatContext = documentChunker.generateChatContext(chatQuery, "client1");
-        System.out.println("Контекст для чата:\n" + chatContext.substring(0, Math.min(500, chatContext.length())) + "...\n");
+        String chatPrompt = documentChunker.generateChatPrompt(chatQuery, "client1");
+        System.out.println("Промпт для чата:\n" + chatPrompt.substring(0, Math.min(500, chatPrompt.length())) + "...\n");
 
-        // Генерация контекста для генерации текста
-        String generationPrompt = "Напиши объяснение о том, как работает семантический поиск";
-        String generationContext = documentChunker.generateGenerationContext(generationPrompt, "client1");
-        System.out.println("Контекст для генерации:\n" + generationContext.substring(0, Math.min(500, generationContext.length())) + "...\n");
+        // Генерация промпта для генерации текста
+        String generationQuery = "Напиши объяснение о том, как работает семантический поиск";
+        String generationPrompt = documentChunker.generateGenerationPrompt(generationQuery, "client1");
+        System.out.println("Промпт для генерации:\n" + generationPrompt.substring(0, Math.min(500, generationPrompt.length())) + "...\n");
+
+        // Показать шаблон по умолчанию
+        System.out.println("Шаблон промпта по умолчанию:");
+        System.out.println(documentChunker.getDefaultPromptTemplate());
 
         // Комбинированный метод
-        Object[] contextAndDocs = documentChunker.getContextAndDocuments("семантический анализ", "client1", 300, 3, true);
-        System.out.println("Форматированный контекст (первые 600 символов):\n" +
-                ((String)contextAndDocs[0]).substring(0, Math.min(600, ((String)contextAndDocs[0]).length())) + "...");
-        System.out.println("Найдено документов: " + ((List<?>)contextAndDocs[1]).size());
+        Object[] promptAndDocs = documentChunker.getPromptAndDocuments("семантический анализ", "client1", 300, 3, null);
+        System.out.println("\nСгенерированный промпт (первые 600 символов):\n" +
+                ((String)promptAndDocs[0]).substring(0, Math.min(600, ((String)promptAndDocs[0]).length())) + "...");
+        System.out.println("Найдено документов: " + ((List<?>)promptAndDocs[1]).size());
     }
 }
