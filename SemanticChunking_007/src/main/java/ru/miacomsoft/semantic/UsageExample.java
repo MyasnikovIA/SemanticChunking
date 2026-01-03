@@ -11,6 +11,9 @@ public class UsageExample {
         SemanticChunker semanticChunker = new SemanticChunker(configLoader);
         DocumentChunker documentChunker = new DocumentChunker(configLoader, semanticChunker);
 
+        // Выводим информацию о подключении к БД
+        documentChunker.printDatabaseInfo();
+
         // 2. Генерация тестовых документов на различные темы
         System.out.println("\n=== Генерация тестовых документов ===");
 

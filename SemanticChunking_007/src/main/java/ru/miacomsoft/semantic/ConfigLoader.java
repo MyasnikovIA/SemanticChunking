@@ -26,20 +26,20 @@ public class ConfigLoader {
     private void setDefaultProperties() {
         properties.setProperty("rag.generation.model", "deepseek-coder-v2:16b");
         properties.setProperty("rag.chat.model", "deepseek-coder-v2:16b");
-        properties.setProperty("rag.similarity.threshold", "0.7"); // Уменьшено с 0.9
+        properties.setProperty("rag.similarity.threshold", "0.7");
         properties.setProperty("rag.ollama.server.host", "localhost");
         properties.setProperty("rag.ollama.server.port", "11434");
         properties.setProperty("rag.embedding.model", "all-minilm:22m");
         properties.setProperty("rag.embedding.host", "localhost");
         properties.setProperty("rag.embedding.server.port", "11434");
 
-        // PostgreSQL configuration (заменяем SQLite на PostgreSQL)
+        // PostgreSQL configuration из отдельных параметров
         properties.setProperty("spring.datasource.driver-class-name", "org.postgresql.Driver");
-        properties.setProperty("spring.datasource.url", "jdbc:postgresql://localhost:5432/rag_database");
-        properties.setProperty("spring.datasource.username", "postgres");
-        properties.setProperty("spring.datasource.password", "your_password");
         properties.setProperty("spring.datasource.host", "localhost");
         properties.setProperty("spring.datasource.port", "5432");
+        properties.setProperty("spring.datasource.database", "rag_database");
+        properties.setProperty("spring.datasource.username", "postgres");
+        properties.setProperty("spring.datasource.password", "your_password");
     }
 
     public Properties getProperties() {
@@ -47,7 +47,12 @@ public class ConfigLoader {
     }
 
     public String getDbUrl() {
-        return properties.getProperty("spring.datasource.url");
+        // Генерируем URL из отдельных параметров
+        String host = properties.getProperty("spring.datasource.host", "localhost");
+        String port = properties.getProperty("spring.datasource.port", "5432");
+        String database = properties.getProperty("spring.datasource.database", "rag_database");
+
+        return String.format("jdbc:postgresql://%s:%s/%s", host, port, database);
     }
 
     public String getOllamaUrl() {
@@ -63,7 +68,36 @@ public class ConfigLoader {
     }
 
     public double getSimilarityThreshold() {
-        return Double.parseDouble(properties.getProperty("rag.similarity.threshold", "0.7"));
+        String thresholdStr = properties.getProperty("rag.similarity.threshold", "0.7");
+        // Убираем возможные комментарии в строке
+        thresholdStr = thresholdStr.split("#")[0].trim();
+        try {
+            return Double.parseDouble(thresholdStr);
+        } catch (NumberFormatException e) {
+            System.err.println("Ошибка парсинга порога схожести: " + thresholdStr + ", используется значение по умолчанию 0.7");
+            return 0.7;
+        }
+    }
+
+    // Добавляем методы для получения отдельных параметров базы данных
+    public String getDbHost() {
+        return properties.getProperty("spring.datasource.host", "localhost");
+    }
+
+    public String getDbPort() {
+        return properties.getProperty("spring.datasource.port", "5432");
+    }
+
+    public String getDbName() {
+        return properties.getProperty("spring.datasource.database", "rag_database");
+    }
+
+    public String getDbUsername() {
+        return properties.getProperty("spring.datasource.username", "postgres");
+    }
+
+    public String getDbPassword() {
+        return properties.getProperty("spring.datasource.password", "");
     }
 
     public Properties loadPropertiesFromClasspath(String fileName) {

@@ -17,6 +17,11 @@ public class DocumentChunker {
     private final String password;
     private final SemanticChunker semanticChunker;
 
+    // Добавляем отдельные параметры для удобства
+    private final String dbHost;
+    private final String dbPort;
+    private final String dbName;
+
     public DocumentChunker() {
         this((ConfigLoader) null);
     }
@@ -34,8 +39,13 @@ public class DocumentChunker {
 
         this.properties = this.configLoader.getProperties();
         this.dbUrl = this.configLoader.getDbUrl();
-        this.username = properties.getProperty("spring.datasource.username", "postgres");
-        this.password = properties.getProperty("spring.datasource.password", "");
+        this.username = this.configLoader.getDbUsername();
+        this.password = this.configLoader.getDbPassword();
+
+        // Получаем отдельные параметры
+        this.dbHost = this.configLoader.getDbHost();
+        this.dbPort = this.configLoader.getDbPort();
+        this.dbName = this.configLoader.getDbName();
 
         // Инициализируем SemanticChunker если не передан
         if (semanticChunker == null) {
@@ -44,7 +54,7 @@ public class DocumentChunker {
             this.semanticChunker = semanticChunker;
         }
 
-        ensureDatabaseExists(this.properties);
+        ensureDatabaseExists();
         initializeDatabase();
     }
 
@@ -56,27 +66,27 @@ public class DocumentChunker {
         this.configLoader = loader;
         this.properties = loader.getProperties();
         this.dbUrl = loader.getDbUrl();
-        this.username = properties.getProperty("spring.datasource.username", "postgres");
-        this.password = properties.getProperty("spring.datasource.password", "");
+        this.username = loader.getDbUsername();
+        this.password = loader.getDbPassword();
+        this.dbHost = loader.getDbHost();
+        this.dbPort = loader.getDbPort();
+        this.dbName = loader.getDbName();
         this.semanticChunker = new SemanticChunker(loader);
 
-        ensureDatabaseExists(this.properties);
+        ensureDatabaseExists();
         initializeDatabase();
     }
 
-    public void ensureDatabaseExists(Properties props) {
-        String username = props.getProperty("spring.datasource.username");
-        String password = props.getProperty("spring.datasource.password");
+    public void ensureDatabaseExists() {
         Properties dbParams = new Properties();
         dbParams.setProperty("user", username);
         dbParams.setProperty("password", password);
 
-        String embeddingServerPort = props.getProperty("spring.datasource.port");
-        String embeddingServerHost = props.getProperty("spring.datasource.host");
-        String workDatabase = props.getProperty("spring.datasource.url");
-        String dbName = workDatabase.substring(workDatabase.lastIndexOf("/") + 1);
-        try (Connection tempConn = DriverManager.getConnection("jdbc:postgresql://" + embeddingServerHost + ":" + embeddingServerPort + "/postgres", dbParams);
+        try (Connection tempConn = DriverManager.getConnection(
+                String.format("jdbc:postgresql://%s:%s/postgres", dbHost, dbPort),
+                dbParams);
              Statement stmt = tempConn.createStatement()) {
+
             ResultSet rs = stmt.executeQuery("SELECT 1 FROM pg_database WHERE datname = '" + dbName + "'");
             if (!rs.next()) {
                 stmt.executeUpdate("CREATE DATABASE " + dbName);
@@ -87,6 +97,7 @@ public class DocumentChunker {
 
         } catch (SQLException e) {
             System.err.println("Ошибка при создании базы данных: " + e.getMessage());
+            System.err.println("URL для подключения: jdbc:postgresql://" + dbHost + ":" + dbPort + "/postgres");
         }
     }
 
@@ -116,6 +127,7 @@ public class DocumentChunker {
 
         } catch (SQLException e) {
             System.err.println("Error initializing database: " + e.getMessage());
+            System.err.println("URL: " + dbUrl);
         }
     }
 
@@ -160,6 +172,7 @@ public class DocumentChunker {
                     """);
 
             System.out.println("PostgreSQL database initialized successfully with pg_vector support");
+            System.out.println("Database URL: " + dbUrl);
         }
     }
 
@@ -650,5 +663,18 @@ public class DocumentChunker {
         }
 
         return documents;
+    }
+
+    /**
+     * Метод для отладки: получает информацию о подключении к базе данных
+     */
+    public void printDatabaseInfo() {
+        System.out.println("\n=== Database Connection Info ===");
+        System.out.println("Host: " + dbHost);
+        System.out.println("Port: " + dbPort);
+        System.out.println("Database: " + dbName);
+        System.out.println("URL: " + dbUrl);
+        System.out.println("Username: " + username);
+        System.out.println("==============================\n");
     }
 }
