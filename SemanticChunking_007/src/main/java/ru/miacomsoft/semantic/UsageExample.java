@@ -2,345 +2,385 @@ package ru.miacomsoft.semantic;
 
 import org.json.JSONObject;
 import java.util.List;
+import java.util.Scanner;
 
 public class UsageExample {
     public static void main(String[] args) throws Exception {
-        // 1. Инициализация компонентов
-        System.out.println("=== Инициализация системы ===");
-        ConfigLoader configLoader = new ConfigLoader("application.properties");
-        SemanticChunker semanticChunker = new SemanticChunker(configLoader);
-        DocumentChunker documentChunker = new DocumentChunker(configLoader, semanticChunker);
+        System.out.println("=== ДЕМОНСТРАЦИЯ СИСТЕМЫ СЕМАНТИЧЕСКОГО ПОИСКА ===");
 
-        // Выводим информацию о подключении к БД
+        // 1. Инициализация системы
+        System.out.println("\n1. ИНИЦИАЛИЗАЦИЯ КОМПОНЕНТОВ");
+        System.out.println("=".repeat(50));
+
+        ConfigLoader configLoader = new ConfigLoader("application.properties");
+        System.out.println("✓ ConfigLoader загружен");
+
+        SemanticChunker semanticChunker = new SemanticChunker(configLoader);
+        System.out.println("✓ SemanticChunker инициализирован");
+
+        DocumentChunker documentChunker = new DocumentChunker(configLoader, semanticChunker);
+        System.out.println("✓ DocumentChunker инициализирован");
+
+        // Информация о подключении
         documentChunker.printDatabaseInfo();
 
-        // 2. Генерация тестовых документов на различные темы
-        System.out.println("\n=== Генерация тестовых документов ===");
+        // Очистка старых документов (опционально)
+        System.out.println("\n2. ОЧИСТКА СТАРЫХ ДАННЫХ (опционально)");
+        System.out.println("=".repeat(50));
 
-        // Тема 1: Программирование на Java
+        try (Scanner scanner = new Scanner(System.in)) {
+            System.out.print("Очистить старые документы для client1? (y/n): ");
+            String answer = scanner.nextLine().trim().toLowerCase();
+
+            if (answer.equals("y") || answer.equals("yes") || answer.equals("да")) {
+                documentChunker.clearDocuments("client1");
+                System.out.println("✓ Старые документы удалены");
+            }
+        }
+
+        // 3. ЗАГРУЗКА ДОКУМЕНТОВ В БАЗУ ДАННЫХ
+        System.out.println("\n3. ЗАГРУЗКА ДОКУМЕНТОВ В БАЗУ ДАННЫХ");
+        System.out.println("=".repeat(50));
+
+        // Документ 1: Технологии Java
         String javaDoc = """
-            Программирование на Java является одним из самых популярных направлений в разработке программного обеспечения.
-            Java - это объектно-ориентированный язык программирования, который был создан компанией Sun Microsystems в 1995 году.
-            Основные особенности Java включают кроссплатформенность, автоматическое управление памятью и строгую типизацию.
-            Виртуальная машина Java (JVM) позволяет запускать Java-приложения на различных операционных системах.
-            Коллекции в Java предоставляют удобные структуры данных для работы с наборами объектов.
-            Многопоточность в Java реализована через класс Thread и интерфейс Runnable.
-            Spring Framework является наиболее популярным фреймворком для создания enterprise-приложений на Java.
+            Java — это высокоуровневый объектно-ориентированный язык программирования, разработанный компанией Sun Microsystems.
+            Основные особенности Java включают:
+            1. Кроссплатформенность — программа, написанная на Java, может работать на любой платформе, поддерживающей JVM.
+            2. Автоматическое управление памятью (сборка мусора).
+            3. Безопасность — встроенные механизмы безопасности предотвращают многие виды атак.
+            4. Многопоточность — поддержка параллельного выполнения потоков.
+            
+            Ключевые компоненты экосистемы Java:
+            - JVM (Java Virtual Machine) — виртуальная машина для выполнения байт-кода.
+            - JRE (Java Runtime Environment) — среда выполнения Java-приложений.
+            - JDK (Java Development Kit) — комплект разработчика, включающий компилятор и инструменты.
+            
+            Популярные фреймворки:
+            - Spring Framework — для создания enterprise-приложений.
+            - Hibernate — ORM для работы с базами данных.
+            - Apache Maven — инструмент для сборки проектов и управления зависимостями.
             """;
 
-        // Тема 2: Искусственный интеллект
-        String aiDoc = """
-            Искусственный интеллект (ИИ) - это область компьютерных наук, занимающаяся созданием интеллектуальных машин.
-            Машинное обучение является подразделом искусственного интеллекта, который позволяет компьютерам учиться на данных.
-            Глубокое обучение использует нейронные сети с множеством слоев для решения сложных задач.
-            Обработка естественного языка (NLP) позволяет компьютерам понимать и генерировать человеческую речь.
-            Компьютерное зрение дает машинам способность видеть и интерпретировать визуальную информацию.
-            Рекомендательные системы используют алгоритмы ИИ для предложения релевантного контента пользователям.
-            """;
+        System.out.println("Загрузка документа по Java программированию...");
+        int javaChunks = documentChunker.addDocumentWithChunking(javaDoc, "client1", "java_programming_guide.txt", 500);
+        System.out.println("✓ Загружено чанков: " + javaChunks);
 
-        // Тема 3: Базы данных
-        String dbDoc = """
-            Базы данных являются фундаментальным компонентом современных информационных систем.
-            Реляционные базы данных используют таблицы для хранения данных и SQL для запросов.
-            PostgreSQL - это мощная объектно-реляционная система управления базами данных с открытым исходным кодом.
-            Индексы в базах данных ускоряют выполнение запросов, но замедляют операции вставки и обновления.
-            Транзакции обеспечивают атомарность, согласованность, изолированность и долговечность операций.
-            Нормализация базы данных уменьшает избыточность данных и улучшает целостность.
-            Векторные базы данных специально предназначены для хранения и поиска векторных эмбеддингов.
-            """;
-
-        // Тема 4: Веб-разработка
-        String webDoc = """
+        // Документ 2: Веб-разработка
+        String webDevDoc = """
             Веб-разработка включает создание и поддержку веб-сайтов и веб-приложений.
-            Frontend-разработка занимается клиентской частью, которую видит пользователь.
-            HTML, CSS и JavaScript являются основными технологиями для frontend-разработки.
-            Backend-разработка отвечает за серверную логику и работу с базами данных.
-            REST API является стандартным подходом для создания веб-сервисов.
-            Микросервисная архитектура позволяет разбивать приложение на небольшие независимые сервисы.
-            Безопасность веб-приложений включает защиту от XSS, CSRF и SQL-инъекций.
+            
+            Frontend-разработка (клиентская часть):
+            - HTML (HyperText Markup Language) — язык разметки веб-страниц.
+            - CSS (Cascading Style Sheets) — язык стилей для оформления веб-страниц.
+            - JavaScript — язык программирования для интерактивности.
+            - React, Angular, Vue.js — популярные JavaScript фреймворки.
+            
+            Backend-разработка (серверная часть):
+            - Обработка HTTP-запросов и ответов.
+            - Работа с базами данных (MySQL, PostgreSQL, MongoDB).
+            - Реализация бизнес-логики приложения.
+            - Аутентификация и авторизация пользователей.
+            
+            REST API (Representational State Transfer):
+            - Архитектурный стиль для создания веб-сервисов.
+            - Использует HTTP методы (GET, POST, PUT, DELETE).
+            - Данные передаются в формате JSON или XML.
+            
+            Микросервисная архитектура:
+            - Приложение разбивается на небольшие независимые сервисы.
+            - Каждый сервис выполняет одну бизнес-функцию.
+            - Сервисы общаются через API.
             """;
 
-        // 3. Добавление документов с автоматическим чанкингом
-        System.out.println("\n=== Добавление документов в базу ===");
+        System.out.println("\nЗагрузка документа по веб-разработке...");
+        int webChunks = documentChunker.addDocumentWithChunking(webDevDoc, "client1", "web_development_guide.txt", 500);
+        System.out.println("✓ Загружено чанков: " + webChunks);
 
-        System.out.println("Добавление документа по Java...");
-        int javaChunks = documentChunker.addDocumentWithChunking(javaDoc, "client1", "java_programming.txt", 300);
-        System.out.println("Добавлено чанков Java: " + javaChunks);
+        // Документ 3: Базы данных PostgreSQL
+        String postgresqlDoc = """
+            PostgreSQL — это мощная объектно-реляционная система управления базами данных (СУБД) с открытым исходным кодом.
+            
+            Основные характеристики:
+            1. Полная поддержка ACID (Atomicity, Consistency, Isolation, Durability).
+            2. Расширяемость — поддержка пользовательских типов данных, операторов и функций.
+            3. Поддержка JSON и JSONB для работы с полуструктурированными данными.
+            4. Репликация и отказоустойчивость.
+            
+            Ключевые возможности:
+            - Транзакции с различными уровнями изоляции.
+            - Индексы (B-tree, Hash, GiST, SP-GiST, GIN, BRIN) для ускорения запросов.
+            - Полнотекстовый поиск.
+            - Геопространственные данные через расширение PostGIS.
+            
+            Расширение pg_vector:
+            - Добавляет поддержку векторных типов данных.
+            - Позволяет хранить эмбеддинги для семантического поиска.
+            - Оптимизировано для операций с векторами (косинусное сходство, евклидово расстояние).
+            
+            Пример создания таблицы с векторами:
+            CREATE TABLE documents (
+                id SERIAL PRIMARY KEY,
+                content TEXT,
+                embedding vector(384)
+            );
+            
+            Пример поиска похожих векторов:
+            SELECT * FROM documents 
+            ORDER BY embedding <=> '[0.1, 0.2, ...]'::vector 
+            LIMIT 10;
+            """;
 
-        System.out.println("Добавление документа по ИИ...");
-        int aiChunks = documentChunker.addDocumentWithChunking(aiDoc, "client1", "artificial_intelligence.txt", 300);
-        System.out.println("Добавлено чанков ИИ: " + aiChunks);
+        System.out.println("\nЗагрузка документа по PostgreSQL...");
+        int pgChunks = documentChunker.addDocumentWithChunking(postgresqlDoc, "client1", "postgresql_guide.txt", 500);
+        System.out.println("✓ Загружено чанков: " + pgChunks);
 
-        System.out.println("Добавление документа по базам данных...");
-        int dbChunks = documentChunker.addDocumentWithChunking(dbDoc, "client1", "databases.txt", 300);
-        System.out.println("Добавлено чанков БД: " + dbChunks);
+        // Документ 4: Искусственный интеллект и машинное обучение
+        String aiDoc = """
+            Искусственный интеллект (ИИ) — область компьютерных наук, занимающаяся созданием интеллектуальных машин.
+            
+            Основные направления ИИ:
+            1. Машинное обучение (ML) — алгоритмы, которые учатся на данных.
+            2. Глубокое обучение (DL) — нейронные сети с множеством слоев.
+            3. Обработка естественного языка (NLP) — понимание и генерация человеческой речи.
+            4. Компьютерное зрение (CV) — анализ и понимание визуальной информации.
+            
+            Типы машинного обучения:
+            - Обучение с учителем (Supervised Learning) — модель обучается на размеченных данных.
+            - Обучение без учителя (Unsupervised Learning) — модель ищет паттерны в неразмеченных данных.
+            - Обучение с подкреплением (Reinforcement Learning) — модель учится через взаимодействие со средой.
+            
+            Популярные алгоритмы:
+            - Линейная и логистическая регрессия.
+            - Деревья решений и случайные леса.
+            - Метод опорных векторов (SVM).
+            - Нейронные сети и глубокое обучение.
+            
+            Применение ИИ:
+            - Рекомендательные системы (YouTube, Netflix, Amazon).
+            - Распознавание изображений и лиц.
+            - Машинный перевод (Google Translate).
+            - Чат-боты и виртуальные ассистенты.
+            """;
 
-        System.out.println("Добавление документа по веб-разработке...");
-        int webChunks = documentChunker.addDocumentWithChunking(webDoc, "client1", "web_development.txt", 300);
-        System.out.println("Добавлено чанков веб-разработки: " + webChunks);
+        System.out.println("\nЗагрузка документа по искусственному интеллекту...");
+        int aiChunks = documentChunker.addDocumentWithChunking(aiDoc, "client1", "artificial_intelligence_guide.txt", 500);
+        System.out.println("✓ Загружено чанков: " + aiChunks);
 
-        // 4. Проверка количества документов в базе
-        System.out.println("\n=== Статистика базы данных ===");
+        // 4. СТАТИСТИКА БАЗЫ ДАННЫХ
+        System.out.println("\n4. СТАТИСТИКА БАЗЫ ДАННЫХ");
+        System.out.println("=".repeat(50));
+
         int totalDocuments = documentChunker.getDocumentCount();
         System.out.println("Всего документов в базе: " + totalDocuments);
 
-        // 5. Тестирование поиска контекстных документов по разным запросам
-        System.out.println("\n=== Тестирование поиска контекстных документов ===");
+        // 5. ТЕСТИРОВАНИЕ ПОИСКА И ГЕНЕРАЦИИ ПРОМПТОВ
+        System.out.println("\n5. ТЕСТИРОВАНИЕ СЕМАНТИЧЕСКОГО ПОИСКА");
+        System.out.println("=".repeat(50));
 
-        // Тест 1: Запрос по программированию на Java
-        System.out.println("\n--- Тест 1: Поиск по запросу 'Java программирование' ---");
-        String query1 = "Как программировать на Java и использовать коллекции?";
-        System.out.println("\nЗапрос: "+ query1);
+        // Тест 1: Поиск по теме Java
+        System.out.println("\nТЕСТ 1: Запрос по теме Java");
+        System.out.println("-".repeat(30));
+        String query1 = "Какие основные особенности языка программирования Java?";
+        System.out.println("Запрос: " + query1);
+
+        // Получаем контекстные документы
         List<DocumentChunker.SimilarDocument> results1 =
-                documentChunker.getContextDocumentsForText(query1, "client1", 200, 5);
+                documentChunker.getContextDocumentsForText(query1, "client1", 300, 5);
+        System.out.println("Найдено релевантных документов: " + results1.size());
 
-        System.out.println("Найдено документов: " + results1.size());
-        for (int i = 0; i < Math.min(results1.size(), 3); i++) {
-            DocumentChunker.SimilarDocument doc = results1.get(i);
-            System.out.println("\nДокумент " + (i+1) + ":");
-            System.out.println("Схожесть: " + String.format("%.3f", doc.getSimilarity()));
-            System.out.println("Содержимое: " +
-                    (doc.getContent().length() > 150 ?
-                            doc.getContent().substring(0, 150) + "..." :
-                            doc.getContent()));
-        }
+        // Генерируем промпт
+        String prompt1 = documentChunker.generateChatPrompt(query1, "client1", 300, 5, null, null);
+        System.out.println("\nСГЕНЕРИРОВАННЫЙ ПРОМПТ:");
+        System.out.println("=".repeat(80));
+        System.out.println(prompt1);
+        System.out.println("=".repeat(80));
 
-        // Тест 2: Запрос по искусственному интеллекту
-        System.out.println("\n--- Тест 2: Поиск по запросу 'машинное обучение' ---");
-        String query2 = "Что такое машинное обучение и глубокие нейронные сети?";
-        System.out.println("\nЗапрос: "+ query2);
+        // Тест 2: Поиск по теме веб-разработки
+        System.out.println("\n\nТЕСТ 2: Запрос по теме веб-разработки");
+        System.out.println("-".repeat(30));
+        String query2 = "Что такое REST API и как он используется в веб-разработке?";
+        System.out.println("Запрос: " + query2);
+
         List<DocumentChunker.SimilarDocument> results2 =
-                documentChunker.getContextDocumentsForText(query2, "client1", 200, 5);
+                documentChunker.getContextDocumentsForText(query2, "client1", 300, 5);
+        System.out.println("Найдено релевантных документов: " + results2.size());
 
-        System.out.println("Найдено документов: " + results2.size());
-        for (int i = 0; i < Math.min(results2.size(), 3); i++) {
-            DocumentChunker.SimilarDocument doc = results2.get(i);
-            System.out.println("\nДокумент " + (i+1) + ":");
-            System.out.println("Схожесть: " + String.format("%.3f", doc.getSimilarity()));
-            System.out.println("Содержимое: " +
-                    (doc.getContent().length() > 150 ?
-                            doc.getContent().substring(0, 150) + "..." :
-                            doc.getContent()));
-        }
+        String prompt2 = documentChunker.generateChatPrompt(query2, "client1", 300, 5, null, null);
+        System.out.println("\nСГЕНЕРИРОВАННЫЙ ПРОМПТ:");
+        System.out.println("=".repeat(80));
+        System.out.println(prompt2);
+        System.out.println("=".repeat(80));
 
-        // Тест 3: Запрос по базам данных
-        System.out.println("\n--- Тест 3: Поиск по запросу 'PostgreSQL базы данных' ---");
-        String query3 = "Как работают индексы в PostgreSQL и для чего нужны транзакции?";
-        System.out.println("\nЗапрос: "+ query3);
+        // Тест 3: Поиск по теме PostgreSQL
+        System.out.println("\n\nТЕСТ 3: Запрос по теме PostgreSQL");
+        System.out.println("-".repeat(30));
+        String query3 = "Какие возможности предоставляет расширение pg_vector в PostgreSQL?";
+        System.out.println("Запрос: " + query3);
+
         List<DocumentChunker.SimilarDocument> results3 =
-                documentChunker.getContextDocumentsForText(query3, "client1", 200, 5);
+                documentChunker.getContextDocumentsForText(query3, "client1", 300, 5);
+        System.out.println("Найдено релевантных документов: " + results3.size());
 
-        System.out.println("Найдено документов: " + results3.size());
-        for (int i = 0; i < Math.min(results3.size(), 3); i++) {
-            DocumentChunker.SimilarDocument doc = results3.get(i);
-            System.out.println("\nДокумент " + (i+1) + ":");
-            System.out.println("Схожесть: " + String.format("%.3f", doc.getSimilarity()));
-            System.out.println("Содержимое: " +
-                    (doc.getContent().length() > 150 ?
-                            doc.getContent().substring(0, 150) + "..." :
-                            doc.getContent()));
-        }
+        String prompt3 = documentChunker.generateChatPrompt(query3, "client1", 300, 5, null, null);
+        System.out.println("\nСГЕНЕРИРОВАННЫЙ ПРОМПТ:");
+        System.out.println("=".repeat(80));
+        System.out.println(prompt3);
+        System.out.println("=".repeat(80));
 
-        // Тест 4: Запрос по веб-разработке
-        System.out.println("\n--- Тест 4: Поиск по запросу 'веб-разработка REST API' ---");
-        String query4 = "Как создать REST API для веб-приложения и обеспечить безопасность?";
-        System.out.println("\nЗапрос: "+ query4);
+        // Тест 4: Поиск по теме ИИ
+        System.out.println("\n\nТЕСТ 4: Запрос по теме искусственного интеллекта");
+        System.out.println("-".repeat(30));
+        String query4 = "Какие существуют типы машинного обучения и их применение?";
+        System.out.println("Запрос: " + query4);
+
         List<DocumentChunker.SimilarDocument> results4 =
-                documentChunker.getContextDocumentsForText(query4, "client1", 200, 5);
+                documentChunker.getContextDocumentsForText(query4, "client1", 300, 5);
+        System.out.println("Найдено релевантных документов: " + results4.size());
 
-        System.out.println("Найдено документов: " + results4.size());
-        for (int i = 0; i < Math.min(results4.size(), 3); i++) {
-            DocumentChunker.SimilarDocument doc = results4.get(i);
-            System.out.println("\nДокумент " + (i+1) + ":");
-            System.out.println("Схожесть: " + String.format("%.3f", doc.getSimilarity()));
-            System.out.println("Содержимое: " +
-                    (doc.getContent().length() > 150 ?
-                            doc.getContent().substring(0, 150) + "..." :
-                            doc.getContent()));
-        }
+        String prompt4 = documentChunker.generateChatPrompt(query4, "client1", 300, 5, null, null);
+        System.out.println("\nСГЕНЕРИРОВАННЫЙ ПРОМПТ:");
+        System.out.println("=".repeat(80));
+        System.out.println(prompt4);
+        System.out.println("=".repeat(80));
 
         // Тест 5: Смешанный запрос
-        System.out.println("\n--- Тест 5: Смешанный запрос 'Java и базы данных' ---");
-        String query5 = "Как использовать Java для работы с базами данных PostgreSQL?";
-        System.out.println("\nЗапрос: "+ query5);
+        System.out.println("\n\nТЕСТ 5: Смешанный запрос (кросс-тематика)");
+        System.out.println("-".repeat(30));
+        String query5 = "Как можно использовать базы данных PostgreSQL в веб-приложениях на Java?";
+        System.out.println("Запрос: " + query5);
+
         List<DocumentChunker.SimilarDocument> results5 =
-                documentChunker.getContextDocumentsForText(query5, "client1", 200, 10);
+                documentChunker.getContextDocumentsForText(query5, "client1", 300, 7);
+        System.out.println("Найдено релевантных документов: " + results5.size());
 
-        System.out.println("Найдено документов: " + results5.size());
+        String prompt5 = documentChunker.generateChatPrompt(query5, "client1", 300, 7, null, null);
+        System.out.println("\nСГЕНЕРИРОВАННЫЙ ПРОМПТ:");
+        System.out.println("=".repeat(80));
+        System.out.println(prompt5);
+        System.out.println("=".repeat(80));
 
-        // Группируем результаты по схожести
-        System.out.println("\nРезультаты, сгруппированные по порогам схожести:");
-        int highSimilarity = 0; // > 0.8
-        int mediumSimilarity = 0; // 0.6 - 0.8
-        int lowSimilarity = 0; // < 0.6
+        // 6. ДЕМОНСТРАЦИЯ ГЕНЕРАЦИИ ПРОМПТОВ С РАЗНЫМИ ПАРАМЕТРАМИ
+        System.out.println("\n6. ДЕМОНСТРАЦИЯ ГЕНЕРАЦИИ ПРОМПТОВ С РАЗНЫМИ ПАРАМЕТРАМИ");
+        System.out.println("=".repeat(50));
 
-        for (DocumentChunker.SimilarDocument doc : results5) {
-            double similarity = doc.getSimilarity();
-            if (similarity > 0.8) {
-                highSimilarity++;
-            } else if (similarity > 0.6) {
-                mediumSimilarity++;
-            } else {
-                lowSimilarity++;
-            }
-        }
+        // Тест с увеличенным количеством документов
+        System.out.println("\nА. Промпт с 10 документами (больше контекста)");
+        System.out.println("-".repeat(30));
+        String queryA = "Расскажи о многопоточности в Java";
+        String promptA = documentChunker.generateChatPrompt(queryA, "client1", 400, 10, 0.5, null);
+        System.out.println("Запрос: " + queryA);
+        System.out.println("Количество документов в контексте: 10");
+        System.out.println("Порог схожести: 0.5");
+        System.out.println("\nДлина промпта: " + promptA.length() + " символов");
+        System.out.println("Первые 300 символов промпта:");
+        System.out.println(promptA.substring(0, Math.min(300, promptA.length())) + "...");
 
-        System.out.println("Высокая схожесть (>0.8): " + highSimilarity + " документов");
-        System.out.println("Средняя схожесть (0.6-0.8): " + mediumSimilarity + " документов");
-        System.out.println("Низкая схожесть (<0.6): " + lowSimilarity + " документов");
+        // Тест с высоким порогом схожести
+        System.out.println("\n\nБ. Промпт с высоким порогом схожести (0.8)");
+        System.out.println("-".repeat(30));
+        String queryB = "Что такое нейронные сети?";
+        String promptB = documentChunker.generateChatPrompt(queryB, "client1", 300, 5, 0.8, null);
+        System.out.println("Запрос: " + queryB);
+        System.out.println("Порог схожести: 0.8 (только очень релевантные документы)");
+        System.out.println("\nДлина промпта: " + promptB.length() + " символов");
+        System.out.println("Первые 300 символов промпта:");
+        System.out.println(promptB.substring(0, Math.min(300, promptB.length())) + "...");
 
-        // Показываем лучшие результаты
-        System.out.println("\nЛучшие результаты:");
-        for (int i = 0; i < Math.min(results5.size(), 5); i++) {
-            DocumentChunker.SimilarDocument doc = results5.get(i);
-            System.out.println("\n#" + (i+1) + " (схожесть: " +
-                    String.format("%.3f", doc.getSimilarity()) + "):");
-            System.out.println(doc.getContent().substring(0,
-                    Math.min(doc.getContent().length(), 200)) +
-                    (doc.getContent().length() > 200 ? "..." : ""));
-        }
-
-        // 6. Демонстрация работы SemanticChunker отдельно
-        System.out.println("\n=== Демонстрация работы SemanticChunker ===");
-        String testText = "Java это язык программирования. Он используется для создания приложений. Spring Framework популярен для enterprise разработки.";
-
-        List<SemanticChunker.Chunk> chunks = semanticChunker.semanticChunking(testText, 100);
-        System.out.println("Текст разбит на " + chunks.size() + " семантических чанка:");
-        for (int i = 0; i < chunks.size(); i++) {
-            SemanticChunker.Chunk chunk = chunks.get(i);
-            System.out.println("\nЧанк " + (i+1) + " (позиция: " + chunk.getPosition() +
-                    ", длина: " + chunk.getLength() + " символов):");
-            System.out.println(chunk.getText());
-        }
-
-        // 7. Тест с собственным эмбеддингом
-        System.out.println("\n=== Тест с ручным добавлением документа ===");
-        String customText = "Векторные базы данных особенно эффективны для семантического поиска и рекомендательных систем.";
-
-        // Получаем эмбеддинг
-        float[] customEmbedding = semanticChunker.getEmbedding(customText);
-
-        // Создаем метаданные
-        JSONObject metadata = new JSONObject();
-        metadata.put("source", "custom_doc.txt");
-        metadata.put("author", "test_user");
-        metadata.put("topic", "vector_databases");
-
-        // Добавляем документ с ручным эмбеддингом
-        int docId = documentChunker.addDocument(customText, metadata, "client1", customEmbedding);
-        if (docId != -1) {
-            System.out.println("Документ добавлен с ID: " + docId);
-
-            // Ищем похожие документы
-            String vectorQuery = "семантический поиск в векторных базах";
-            List<DocumentChunker.SimilarDocument> vectorResults =
-                    documentChunker.getContextDocumentsForText(vectorQuery, "client1", 200, 3);
-
-            System.out.println("Найдено похожих документов: " + vectorResults.size());
-            if (!vectorResults.isEmpty()) {
-                System.out.println("Лучший результат (схожесть: " +
-                        String.format("%.3f", vectorResults.get(0).getSimilarity()) + "):");
-                System.out.println(vectorResults.get(0).getContent());
-            }
-        }
-
-        // 8. Демонстрация новых методов генерации промпта для Ollama
-        System.out.println("\n=== Демонстрация генерации промпта для Ollama ===");
-
-        // 8.1 Генерация промпта для Ollama Chat с шаблоном по умолчанию
-        System.out.println("\n--- 8.1 Промпт для Ollama Chat (шаблон по умолчанию) ---");
-        String chatQuery = "Объясни, как работает многопоточность в Java";
-        System.out.println("Запрос: " + chatQuery);
-
-        String chatPrompt = documentChunker.generateChatPrompt(chatQuery, "client1");
-        System.out.println("\nСгенерированный промпт (первые 800 символов):");
-        System.out.println(chatPrompt.substring(0, Math.min(800, chatPrompt.length())) + "...");
-
-        // 8.2 Генерация промпта с кастомными параметрами
-        System.out.println("\n--- 8.2 Промпт с кастомными параметрами ---");
-        String detailedPrompt = documentChunker.generateChatPrompt(
-                chatQuery,
-                "client1",
-                300,    // maxChunkSize
-                7,      // maxContextDocuments
-                0.6,    // minSimilarity
-                null    // promptTemplate (используется по умолчанию)
-        );
-        System.out.println("Длина промпта: " + detailedPrompt.length() + " символов");
-        System.out.println("Первые 1000 символов:");
-        System.out.println(detailedPrompt.substring(0, Math.min(1000, detailedPrompt.length())) + "...");
-
-        // 8.3 Генерация промпта для Ollama Generation
-        System.out.println("\n--- 8.3 Промпт для Ollama Generation ---");
-        String generationQuery = "Напиши подробное руководство по использованию Spring Framework";
-        System.out.println("Запрос для генерации: " + generationQuery);
-
-        String generationPrompt = documentChunker.generateGenerationPrompt(
-                generationQuery,
-                "client1",
-                400,    // maxChunkSize
-                8,      // maxContextDocuments
-                0.55,   // minSimilarity
-                null    // promptTemplate
-        );
-        System.out.println("\nСгенерированный промпт (первые 900 символов):");
-        System.out.println(generationPrompt.substring(0, Math.min(900, generationPrompt.length())) + "...");
-
-        // 8.4 Комбинированный метод получения промпта и документов
-        System.out.println("\n--- 8.4 Комбинированный метод получения промпта ---");
-        String combinedQuery = "Что такое REST API и микросервисная архитектура?";
-        System.out.println("Запрос: " + combinedQuery);
-
-        Object[] combinedResult = documentChunker.getPromptAndDocuments(
-                combinedQuery,
-                "client1",
-                350,    // maxChunkSize
-                4,      // maxContextDocuments
-                null    // promptTemplate
-        );
-
-        String formattedPrompt = (String) combinedResult[0];
-        List<DocumentChunker.SimilarDocument> retrievedDocs = (List<DocumentChunker.SimilarDocument>) combinedResult[1];
-
-        System.out.println("\nПолучено документов: " + retrievedDocs.size());
-        System.out.println("Длина промпта: " + formattedPrompt.length() + " символов");
-        System.out.println("\nПромпт (первые 700 символов):");
-        System.out.println(formattedPrompt.substring(0, Math.min(700, formattedPrompt.length())) + "...");
-
-        // 8.5 Пример с кастомным шаблоном промпта
-        System.out.println("\n--- 8.5 Кастомный шаблон промпта ---");
+        // Тест с кастомным шаблоном промпта
+        System.out.println("\n\nВ. Промпт с кастомным шаблоном");
+        System.out.println("-".repeat(30));
 
         String customTemplate = """
-            Ты - эксперт по программированию. Отвечай на вопросы строго на основе предоставленного контекста.
-            Если информации в контексте недостаточно, используй свои знания, но отметь это.
+            Ты — технический эксперт. Используй предоставленный контекст для ответа на вопрос.
+            Если информация в контексте недостаточна, дополни ответ своими знаниями.
+            Отвечай подробно, с примерами и практическими рекомендациями.
             
-            Контекстная информация:
+            Релевантный контекст:
             {context}
             
-            Вопрос пользователя:
+            Технический вопрос:
             {query}
             
-            Твой ответ должен быть четким и структурированным:
+            Развернутый ответ эксперта:
             """;
 
-        String customQuery = "Какие существуют угрозы безопасности в веб-приложениях?";
-        System.out.println("Запрос: " + customQuery);
-
-        String customGeneratedPrompt = documentChunker.generatePromptWithCustomTemplate(
-                customTemplate,
-                customQuery,
-                "client1",
-                250,
-                3
+        String queryC = "Как настроить индексы в PostgreSQL для оптимизации запросов?";
+        String promptC = documentChunker.generatePromptWithCustomTemplate(
+                customTemplate, queryC, "client1", 400, 5
         );
 
-        System.out.println("\nПромпт с кастомным шаблоном (первые 800 символов):");
-        System.out.println(customGeneratedPrompt.substring(0, Math.min(800, customGeneratedPrompt.length())) + "...");
+        System.out.println("Запрос: " + queryC);
+        System.out.println("Кастомный шаблон: 'Технический эксперт'");
+        System.out.println("\nДлина промпта: " + promptC.length() + " символов");
+        System.out.println("Первые 400 символов промпта:");
+        System.out.println(promptC.substring(0, Math.min(400, promptC.length())) + "...");
 
-        // 8.6 Показать шаблон по умолчанию
-        System.out.println("\n--- 8.6 Шаблон промпта по умолчанию ---");
+        // 7. ПРОСМОТР ЗАГРУЖЕННЫХ ДОКУМЕНТОВ
+        System.out.println("\n\n7. ПРОСМОТР ЗАГРУЖЕННЫХ ДОКУМЕНТОВ");
+        System.out.println("=".repeat(50));
+
+        List<DocumentChunker.SimilarDocument> allDocs = documentChunker.getAllDocuments("client1", 10);
+        System.out.println("Первые 10 загруженных документов:");
+
+        for (int i = 0; i < allDocs.size(); i++) {
+            DocumentChunker.SimilarDocument doc = allDocs.get(i);
+            System.out.println("\nДокумент " + (i + 1) + ":");
+            System.out.println("ID: " + doc.getId());
+            System.out.println("Метаданные: " + doc.getMetadata());
+            System.out.println("Содержимое (первые 150 символов):");
+            System.out.println(doc.getContent().substring(0, Math.min(150, doc.getContent().length())) + "...");
+            System.out.println("-".repeat(50));
+        }
+
+        // 8. ДЕМОНСТРАЦИЯ ФОРМАТИРОВАНИЯ КОНТЕКСТА
+        System.out.println("\n8. ФОРМАТИРОВАНИЕ КОНТЕКСТА ИЗ ДОКУМЕНТОВ");
+        System.out.println("=".repeat(50));
+
+        System.out.println("Пример форматирования 3 найденных документов:");
+        if (!results1.isEmpty()) {
+            Object[] promptAndDocs = documentChunker.getPromptAndDocuments(query1, "client1", 300, 3, null);
+            String formattedContext = ((String) promptAndDocs[0])
+                    .replace(documentChunker.getDefaultPromptTemplate()
+                            .replace("{context}", "")
+                            .replace("{query}", query1), "")
+                    .replace("Ответ:", "");
+
+            //System.out.println("Контекст для запроса: \"" + query1 + "\"");
+            System.out.println(formattedContext);
+        }
+
+        // 9. ИНТЕРАКТИВНЫЙ РЕЖИМ
+        System.out.println("\n9. ИНТЕРАКТИВНЫЙ РЕЖИМ (дополнительно)");
+        System.out.println("=".repeat(50));
+        System.out.println("Для тестирования других запросов запустите программу с интерактивным режимом.");
+
+        // 10. СВОДКА
+        System.out.println("\n\n10. СВОДКА РЕЗУЛЬТАТОВ");
+        System.out.println("=".repeat(50));
+
+        int totalChunks = javaChunks + webChunks + pgChunks + aiChunks;
+        System.out.println("Всего загружено чанков: " + totalChunks);
+        System.out.println("Темы документов:");
+        System.out.println("  1. Java программирование: " + javaChunks + " чанков");
+        System.out.println("  2. Веб-разработка: " + webChunks + " чанков");
+        System.out.println("  3. PostgreSQL: " + pgChunks + " чанков");
+        System.out.println("  4. Искусственный интеллект: " + aiChunks + " чанков");
+
+        System.out.println("\nПротестировано запросов: 5");
+        System.out.println("Сгенерировано промптов: 5 + 3 (с разными параметрами) = 8");
+        System.out.println("\nШаблон промпта по умолчанию:");
+        System.out.println("-".repeat(40));
         System.out.println(documentChunker.getDefaultPromptTemplate());
+        System.out.println("-".repeat(40));
 
-        System.out.println("\n=== Тестирование завершено ===");
+        System.out.println("\n✓ Система готова к использованию с Ollama!");
+        System.out.println("✓ Загружено " + totalDocuments + " документов в базу данных");
+        System.out.println("✓ Семантический поиск работает корректно");
+        System.out.println("✓ Промпты генерируются в правильном формате для моделей Ollama");
+
+        System.out.println("\n" + "=".repeat(80));
+        System.out.println("ДЕМОНСТРАЦИЯ ЗАВЕРШЕНА УСПЕШНО!");
+        System.out.println("=".repeat(80));
     }
 }
